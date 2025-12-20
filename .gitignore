@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Python (if users run tools inside this dir)
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
