@@ -1,4 +1,5 @@
 # macOS Apple Silicon Setup & Hardware Control Guide
+## Complete AirPort Extreme Jailbreak Tutorial (Root SSH Access & Advanced Modifications)
 
 This guide is intended for users running **macOS 12.3 Monterey (or newer)** on **Apple Silicon (M1/M2/M3)** chips. Tested on **macOS Sonoma 14.3**.
 
@@ -227,4 +228,362 @@ sysctl -w kern.cltm.override_fan=-1
 ### 3. Persistence
 The AirPort filesystem is read-only. If the device reboots or loses power, the fan control resets to **Auto** (`-1`). You must re-apply the SSH command after every reboot.
 
+---
 
+## Part 7: ACP Properties (Advanced Configuration)
+
+The AirPort Control Protocol (ACP) exposes hundreds of configuration properties that can be read and modified using 4-character codes. This allows deep customization beyond what AirPort Utility provides.
+
+### 1. Using the `acp` Command
+
+Once SSH is enabled and you're connected to the device, you can use the built-in `acp` tool:
+
+**Get a property value:**
+```bash
+acp -q {property}
+```
+
+**Set a property value:**
+```bash
+acp -q {property}={value}
+```
+
+**List available properties:**
+```bash
+acp acpprop
+```
+
+### 2. Common Useful Properties
+
+#### General Device Information
+```bash
+# Get device name
+acp -q syNm
+
+# Set device name
+acp -q syNm=AirPort\ Extreme
+
+# Get serial number
+acp -q sySN
+
+# Get firmware version
+acp -q syVs
+
+# Get MAC addresses
+acp -q raMA  # Radio (Wi-Fi) MAC
+acp -q laMA  # LAN MAC
+acp -q waMA  # WAN MAC
+```
+
+#### Time & Timezone
+```bash
+# Get current time (Unix timestamp)
+acp -q time
+
+# Get timezone info
+acp -q timz
+```
+
+#### Wi-Fi Configuration
+Most Wi-Fi settings are nested in the `WiFi` property, but some shortcuts exist:
+```bash
+# Radio name (SSID) - via WiFi property
+# Radio channel - via WiFi property
+# Radio power - via WiFi property
+```
+
+#### Network Settings
+```bash
+# WAN IP address
+acp -q waIP
+
+# WAN subnet mask
+acp -q waSM
+
+# WAN router address (gateway)
+acp -q waRA
+
+# LAN IP address
+acp -q laIP
+
+# LAN subnet mask
+acp -q laSM
+
+# DHCP range begin
+acp -q dhBg
+
+# DHCP range end
+acp -q dhEn
+```
+
+### 3. Important Notes
+
+⚠️ **Always reboot after changing properties:**
+```bash
+# From SSH session on device
+reboot
+
+# Or from your Mac
+python -m acp -t 10.0.1.1 -p <PASSWORD> --reboot
+```
+
+⚠️ **Some properties are read-only** and cannot be modified.
+
+⚠️ **Invalid values can brick your device** or require a factory reset.
+
+### 4. Full Documentation
+
+For a complete reference of all ACP properties, codes, and their meanings, see:
+- **[ACP Properties Wiki](https://github.com/samuelthomas2774/airport/wiki/ACP-properties)** - Comprehensive list
+- **[acp command Wiki](https://github.com/samuelthomas2774/airport/wiki/acp-command)** - Command usage examples
+
+---
+
+## Part 8: USB Startup Scripts (Automation)
+
+The AirPort Extreme can automatically execute custom scripts from a USB drive on startup. This enables advanced automation like applying custom firewall rules, configurations, or running services.
+
+> ⚠️ **Security Warning**: This creates a potential security risk. Anyone with physical access and a USB drive could run malicious code. Use the hash verification system (see below) to protect against unauthorized scripts.
+
+### 1. How It Works
+
+The system works by:
+1. Replacing `/etc/rc.local` with a custom script that mounts the USB drive (`/dev/dk0` → `/Volumes/dk0`)
+2. Running `/Volumes/dk0/AirPort-startup.sh` if it exists and passes verification
+3. Unmounting the drive and restarting `diskd` to restore normal USB functionality
+
+### 2. Installation
+
+**Prerequisites:**
+- SSH access enabled (see Part 3)
+- USB drive connected to the AirPort (formatted as HFS+, APFS, or FAT32)
+- Clone the [airport repository](https://github.com/samuelthomas2774/airport) to your USB drive:
+  ```bash
+  # On your Mac, with USB drive mounted
+  cd /Volumes/YOUR_USB_DRIVE
+  git clone https://github.com/samuelthomas2774/airport.git
+  ```
+
+**Step 1: Connect via SSH**
+```bash
+ssh root@10.0.1.1
+```
+
+**Step 2: Verify Symbolic Links**
+Check that the startup script hooks exist:
+```bash
+ls -la /etc | grep rc.local
+```
+
+You should see:
+```
+lrwxr-xr-x  1 root  wheel  19 Aug 30  2016 rc.local -> /mnt/Flash/rc.local
+```
+
+**Step 3: Mount USB Drive**
+The USB is auto-mounted when accessed via SMB/AFP, or manually:
+```bash
+mount /dev/dk0 /Volumes/dk0
+```
+
+**Step 4: Copy Startup Scripts**
+Assuming the `airport` repository is at the root of your USB drive (`/Volumes/dk0/airport/`):
+
+```bash
+cp /Volumes/dk0/airport/startup-scripts/AirPort-run.sh /mnt/Flash/rc.local
+cp /Volumes/dk0/airport/startup-scripts/AirPort-rc.local.sh /mnt/Flash/AirPort-rc.local.sh
+cp /Volumes/dk0/airport/startup-scripts/AirPort-run-on-ifup.sh /mnt/Flash/AirPort-run-on-ifup.sh
+```
+
+**Step 5: Set Up Security (Recommended)**
+Generate a hash key to prevent unauthorized USB drives from running scripts:
+
+```bash
+cd /Volumes/dk0/airport
+./startup-scripts/setup-security.sh
+```
+
+This creates:
+- `/Volumes/dk0/AirPort-hash.key` - 1024 bytes of random data
+- `/mnt/Flash/AirPort-hash.key` - SHA512 hash of that data
+
+The startup script will verify the hash before running anything.
+
+### 3. Creating Your Startup Script
+
+Create `/AirPort-startup.sh` on your USB drive:
+
+```bash
+#!/bin/sh
+# Example startup script
+
+echo "[$(date)] AirPort startup script running..." > /AirPort-startup.log
+
+# Apply custom firewall rules
+/airport/pf/inject.sh /airport/pf/sed.txt
+
+# Add more custom commands here
+
+echo "[$(date)] Startup complete!" >> /AirPort-startup.log
+```
+
+Make it executable:
+```bash
+chmod +x /Volumes/dk0/AirPort-startup.sh
+```
+
+### 4. Removal
+
+To remove startup scripts and return to default behavior:
+```bash
+ssh root@10.0.1.1
+rm /mnt/Flash/rc.local
+rm /mnt/Flash/AirPort-rc.local.sh
+rm /mnt/Flash/AirPort-run-on-ifup.sh
+reboot
+```
+
+### 5. Full Documentation
+
+For detailed information, see:
+- **[Startup Scripts Wiki](https://github.com/samuelthomas2774/airport/wiki/Startup-scripts)**
+- **[Startup Scripts Source](https://github.com/samuelthomas2774/airport/tree/master/startup-scripts)**
+
+---
+
+## Part 9: Firewall Customization (Packet Filter)
+
+The AirPort uses OpenBSD's `pf` (packet filter) for firewall and NAT. By default, the configuration is locked, but you can inject custom "anchors" (extension points) to add your own rules without modifying the main config.
+
+### 1. What Are Anchors?
+
+Anchors are placeholders in the pf config where you can load external rule files. The injection script adds these anchors:
+
+- `AirPort-nat-before` - NAT rules before default NAT
+- `AirPort-nat-after` - NAT rules after default NAT  
+- `AirPort-filter-before` - Filter rules before default filters
+- `AirPort-filter-after` - Filter rules after default filters
+- `AirPort-natpmp-after` - Rules after NAT-PMP
+
+### 2. Installation
+
+**Prerequisites:**
+- SSH access enabled
+- USB drive with the cloned [airport repository](https://github.com/samuelthomas2774/airport)
+- Startup scripts installed (Part 8) - *recommended but not required*
+
+**Manual Injection (One-time):**
+
+```bash
+ssh root@10.0.1.1
+mount /dev/dk0 /Volumes/dk0
+
+# Run the injection script
+/Volumes/dk0/airport/pf/inject.sh /Volumes/dk0/airport/pf/sed.txt
+```
+
+**Automatic Injection (via Startup Script):**
+
+Add to your `/AirPort-startup.sh`:
+```bash
+#!/bin/sh
+# Apply firewall modifications on every boot
+/airport/pf/inject.sh /airport/pf/sed.txt
+
+# Optional: run injection daemon (re-applies rules every minute)
+# /airport/pf/injectd.sh > /AirPort-pf-injectd.sh.log 2>&1 &
+```
+
+### 3. Adding Custom Rules
+
+Create rule files on your USB drive in `/AirPort-pf/`:
+
+**Example: Port Forwarding `/AirPort-pf/nat-after.conf`**
+```bash
+# Forward port 8080 to internal server 10.0.1.100:80
+rdr pass on $wan_if proto tcp from any to any port 8080 -> 10.0.1.100 port 80
+```
+
+**Example: Block Specific Traffic `/AirPort-pf/filter-after.conf`**
+```bash
+# Block outbound port 25 (SMTP)
+block drop out quick on $wan_if proto tcp to any port 25
+
+# Allow specific IP through firewall
+pass in quick on $wan_if proto tcp from 203.0.113.42 to any
+```
+
+**Example: Custom NAT `/AirPort-pf/nat-before.conf`**
+```bash
+# Custom NAT rule
+nat on $wan_if from 10.0.1.0/24 to any -> ($wan_if)
+```
+
+### 4. Applying Rules
+
+After creating/modifying rule files, reload them:
+
+```bash
+ssh root@10.0.1.1
+
+# Re-run injection script
+/Volumes/dk0/airport/pf/inject.sh /Volumes/dk0/airport/pf/sed.txt
+```
+
+Or if using the daemon, it will auto-reload every minute.
+
+### 5. Verification
+
+Check if your rules are loaded:
+
+```bash
+# Show all pf rules
+pfctl -s all
+
+# Show NAT rules
+pfctl -s nat
+
+# Show filter rules
+pfctl -s rules
+
+# Show rules in a specific anchor
+pfctl -a AirPort-filter-after -s rules
+```
+
+### 6. Important Notes
+
+⚠️ **Rules are not persistent across reboots** - Use startup scripts (Part 8) to re-apply on boot
+
+⚠️ **Invalid syntax can break networking** - Test rules carefully
+
+⚠️ **Variables available:**
+- `$wan_if` - WAN interface (usually `arge0`)
+- `$lan_if` - LAN interface (usually `bridge0`)
+- `$priv4` - Private IPv4 ranges table
+- `$priv6` - Private IPv6 ranges table
+
+### 7. Full Documentation
+
+For detailed information:
+- **[pf Modification README](https://github.com/samuelthomas2774/airport/tree/master/pf)**
+- **[OpenBSD PF User's Guide](https://www.openbsd.org/faq/pf/)** - Official pf documentation
+
+---
+
+## Appendix: Additional Resources
+
+### Official Documentation
+- **[AirPort Utility](https://github.com/samuelthomas2774/airport/wiki/AirPort-Utility)** - Information about the official configuration tool
+- **[AirPort Status Codes](https://github.com/samuelthomas2774/airport/wiki/AirPort-status-codes)** - Diagnostic codes and troubleshooting
+- **[Static Routes](https://github.com/samuelthomas2774/airport/wiki/Static-routes)** - Configuring custom routing
+
+### Community Resources
+- **[samuelthomas2774/airport Wiki](https://github.com/samuelthomas2774/airport/wiki)** - Comprehensive hacking documentation
+- **[x56/airpyrt-tools](https://github.com/x56/airpyrt-tools)** - Python implementation of ACP protocol
+
+### Alternative Tools
+- **[node-acp](https://github.com/samuelthomas2774/airport/wiki/node-acp)** - Node.js implementation with full encryption support and IPv6
+
+---
+
+**End of Guide**
