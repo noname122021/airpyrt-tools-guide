@@ -14,84 +14,89 @@ sudo chmod +x /usr/local/bin/airport
 ```
 
 It covers:
-1.  Installing the legacy Python 2.7 environment on modern macOS.
+1.  Installing the Python 3 AirPyrt environment on modern macOS.
 2.  Fixing SSH connection issues with the AirPort Extreme.
 3.  **Bonus:** Controlling the internal fan and monitoring sensors (NetBSD hacking).
 
 ---
 
 ## Prerequisites
-Clone this repository to get the necessary airpyrt-tools:
+Clone the Python 3 AirPyrt tools repository:
 
 ```bash
-git clone https://github.com/x56/airpyrt-tools
-cd airport-tools
+git clone https://github.com/jamesyc/airpyrt-tools
+cd airpyrt-tools
 ```
 
-## Part 1: Installing Python 2.7 on Apple Silicon
+## Part 1: Installing Python 3 on Apple Silicon
 
-macOS has removed Python 2.7, and standard installation methods fail on Apple Silicon because legacy Python cannot find system libraries (zlib, bzip2) in their new Homebrew locations.
+AirPyrt now supports Python 3.9 and newer. Python 3.11 or newer is recommended on current macOS.
 
 ### 1. Prerequisites
-Install Homebrew and the required dependencies:
+Install Homebrew and the required host tools:
 
 ```bash
-brew install pyenv zlib bzip2
+brew install python@3.11 pipx
+pipx ensurepath
 ```
 
-### 2. Configure Shell
-Ensure `pyenv` is initialized in your shell (Zsh is default on macOS). Run these commands once:
-
-```bash
-echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc
-echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc
-echo 'eval "$(pyenv init -)"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-### 3. Build Python 2.7.18
-Use specific compiler flags to point to Homebrew's library paths:
-
-```bash
-LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix bzip2)/lib"
-CPPFLAGS="-I$(brew --prefix zlib)/include -I$(brew --prefix bzip2)/include"
-pyenv install 2.7.18
-```
-
-
-### 4. Activate Environment
-Navigate to this repository folder and activate the version:
-
-```bash
-pyenv local 2.7.18
-```
+Restart your terminal after `pipx ensurepath` if your shell does not find `pipx` or `acp`.
 
 ---
 
 ## Part 2: Installing airpyrt-tools
 
-### 1. Install Dependencies
-The original tools use `pycrypto`, which is obsolete and difficult to build. Install the modern drop-in replacement `pycryptodome` instead:
+The Python 3 fork installs its package dependencies automatically through `pipx` or `pip`.
+
+### 1. Recommended Install with pipx
+From the cloned `airpyrt-tools` directory:
 
 ```bash
-pip install pycryptodome
+pipx install .
+acp --help
 ```
 
-### 2. Run Installation
-Even with Python installed, `setup.py` may fail with linker errors (`ld: warning: search path not found`) because `setuptools` also needs to know where the libraries are.
-
-**Tip:** If `setup.py` fails complaining about `pycrypto`, edit the `setup.py` file and change `install_requires` to:
-`install_requires=["pycryptodome"]`
-
-Run the installation with these exported flags:
+### 2. Virtual Environment Install
+If you prefer a project-local virtual environment:
 
 ```bash
-export LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix bzip2)/lib"
-export CFLAGS="-I$(brew --prefix zlib)/include -I$(brew --prefix bzip2)/include"
-export CPPFLAGS="-I$(brew --prefix zlib)/include -I$(brew --prefix bzip2)/include"
-
-python setup.py install
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install .
+acp --help
 ```
+
+For local development and tests, install the development extras:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+### 3. Upgrading Later
+To reinstall from the current cloned checkout:
+
+For `pipx`:
+```bash
+pipx uninstall acp
+pipx install .
+```
+
+For a virtual environment:
+```bash
+source .venv/bin/activate
+python -m pip install -U .
+```
+
+### 4. Legacy Authentication Fallback
+Remote ACP commands should use SRP authentication:
+
+```bash
+acp --auth-mode srp --help
+```
+
+If `--auth-mode srp` is omitted, AirPyrt uses the older ACP authentication mode. Use that older mode only as a fallback on a trusted local network if SRP is not supported by your device or firmware.
 
 ---
 
@@ -103,16 +108,16 @@ Before you can connect via SSH, you must enable the `dbug` flag on the AirPort E
 Replace `<IP_ADDRESS>` with your router's IP (usually `10.0.1.1`) and `<PASSWORD>` with your device password.
 
 ```bash
-python -m acp -t <IP_ADDRESS> -p <PASSWORD> --setprop dbug 0x3000
-python -m acp -t <IP_ADDRESS> -p <PASSWORD> --reboot
+acp --auth-mode srp -t <IP_ADDRESS> -p <PASSWORD> --setprop dbug 0x3000
+acp --auth-mode srp -t <IP_ADDRESS> -p <PASSWORD> --reboot
 ```
 
 **2. Disable SSH (Optional):**
 To secure the device later, you can disable the flag:
 
 ```bash
-python -m acp -t <IP_ADDRESS> -p <PASSWORD> --setprop dbug 0x0000
-python -m acp -t <IP_ADDRESS> -p <PASSWORD> --reboot
+acp --auth-mode srp -t <IP_ADDRESS> -p <PASSWORD> --setprop dbug 0x0000
+acp --auth-mode srp -t <IP_ADDRESS> -p <PASSWORD> --reboot
 ```
 
 ---
@@ -154,8 +159,8 @@ By connecting via SSH, you can remove regional restrictions (e.g., beamforming l
 ssh root@10.0.1.1
 ```
 
-**2. Run Unlock Commands:**
-Once inside the SSH session, execute the generic `acp` tool to set the region to "0" (Universal) and SKU to "FCC" (US High Power).
+**2. Run Device-Side Unlock Commands:**
+Once inside the SSH session, execute the AirPort's built-in device-side `acp` tool to set the region to "0" (Universal) and SKU to "FCC" (US High Power).
 
 ```bash
 acp -q syRe=0x00000000
@@ -163,10 +168,10 @@ acp static apple-sku=FCC
 ```
 
 **3. Reboot:**
-Exit SSH and reboot the router using the python tool (or power cycle it).
+Exit SSH and reboot the router from your Mac using the host-side Python 3 AirPyrt tool, or power cycle it.
 
 ```bash
-python -m acp -t 10.0.1.1 -p <PASSWORD> --reboot
+acp --auth-mode srp -t 10.0.1.1 -p <PASSWORD> --reboot
 ```
 
 ---
@@ -234,9 +239,9 @@ The AirPort filesystem is read-only. If the device reboots or loses power, the f
 
 The AirPort Control Protocol (ACP) exposes hundreds of configuration properties that can be read and modified using 4-character codes. This allows deep customization beyond what AirPort Utility provides.
 
-### 1. Using the `acp` Command
+### 1. Using the Device-Side `acp` Command
 
-Once SSH is enabled and you're connected to the device, you can use the built-in `acp` tool:
+Once SSH is enabled and you're connected to the device, you can use the AirPort's built-in device-side `acp` tool:
 
 **Get a property value:**
 ```bash
@@ -324,7 +329,7 @@ acp -q dhEn
 reboot
 
 # Or from your Mac
-python -m acp -t 10.0.1.1 -p <PASSWORD> --reboot
+acp --auth-mode srp -t 10.0.1.1 -p <PASSWORD> --reboot
 ```
 
 ⚠️ **Some properties are read-only** and cannot be modified.
@@ -579,7 +584,8 @@ For detailed information:
 
 ### Community Resources
 - **[samuelthomas2774/airport Wiki](https://github.com/samuelthomas2774/airport/wiki)** - Comprehensive hacking documentation
-- **[x56/airpyrt-tools](https://github.com/x56/airpyrt-tools)** - Python implementation of ACP protocol
+- **[jamesyc/airpyrt-tools](https://github.com/jamesyc/airpyrt-tools)** - current Python 3 implementation of the ACP protocol
+- **[x56/airpyrt-tools](https://github.com/x56/airpyrt-tools)** - original ACP protocol implementation
 
 ### Alternative Tools
 - **[node-acp](https://github.com/samuelthomas2774/airport/wiki/node-acp)** - Node.js implementation with full encryption support and IPv6
