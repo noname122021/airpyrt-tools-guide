@@ -25,7 +25,7 @@ This repository serves as a comprehensive documentation hub for **jailbreaking**
         *   [Enabling SSH Access (Root Control)](MACOS_SILICON_GUIDE.md#part-3-enabling-ssh-access).
         *   [Region Unlocking: Removing 802.11ac limits & boosting power](MACOS_SILICON_GUIDE.md#part-5-region--power-unlock-speed-boost).
         *   [Advanced: Manual Fan Control & Sensor Monitoring](MACOS_SILICON_GUIDE.md#part-6-hardware-control--fan-modding-advanced).
-        *   [Time Capsule: HDD Spindown (Sleep) Settings](HDD_SPINDOWN_GUIDE.md) (Experimental/Untested).
+        *   [Time Capsule: HDD Spindown (Sleep) Settings](HDD_SPINDOWN_GUIDE.md) (Verified Working - tested on A1470 by @gRiverOS).
         *   [ACP Properties Reference (Advanced Configuration)](MACOS_SILICON_GUIDE.md#part-7-acp-properties-advanced-configuration).
         *   [USB Startup Scripts (Automation)](MACOS_SILICON_GUIDE.md#part-8-usb-startup-scripts-automation).
         *   [Firewall Customization (Packet Filter)](MACOS_SILICON_GUIDE.md#part-9-firewall-customization-packet-filter).
@@ -41,7 +41,7 @@ This repository serves as a comprehensive documentation hub for **jailbreaking**
 - **Advanced Hacking**: [samuelthomas2774/airport](https://github.com/samuelthomas2774/airport) - Startup scripts, firewall mods, and comprehensive ACP properties documentation ([Wiki](https://github.com/samuelthomas2774/airport/wiki))
 
 ## ⚠️ Disclaimer
-Hardware modifications (fan control, disk sleep) are done at your own risk. Disabling the fan while using the original internal Power Supply Unit (PSU) leads to device failure. HDD spindown settings are experimental and **untested** (see [Issue #1](https://github.com/noname122021/airpyrt-tools-guide/issues/1)).
+Hardware modifications (fan control, disk sleep) are done at your own risk. Disabling the fan while using the original internal Power Supply Unit (PSU) leads to device failure. HDD spindown settings have been verified working on physical hardware (see [Issue #1](https://github.com/noname122021/airpyrt-tools-guide/issues/1)).
 
 ---
 

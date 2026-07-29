@@ -231,10 +231,10 @@ sysctl -w kern.cltm.override_fan=-1
 ```
 
 ### 3. Persistence
-The AirPort filesystem is read-only. If the device reboots or loses power, the fan control resets to **Auto** (`-1`). You must re-apply the SSH command after every reboot.
+The root filesystem runs from a memory disk (`tmpfs` / `md0a`) that is rebuilt from firmware image on every boot. If the device reboots or loses power, fan control resets to **Auto** (`-1`). You must re-apply the SSH command or configure a USB startup script after every reboot.
 
 ### 4. Time Capsule HDD Spindown
-If you have an AirPort Time Capsule (A1470), you can also adjust the hard drive's sleep behavior using `atactl`. This is an experimental feature and was not tested on a physical device.
+If you have an AirPort Time Capsule (A1470), you can adjust the hard drive's sleep behavior using `atactl`. This feature has been physically verified on Time Capsule A1470 hardware (thanks to @gRiverOS).
 
 See the separate **[HDD Spindown Guide](HDD_SPINDOWN_GUIDE.md)** for detailed instructions.
 
