@@ -6,12 +6,19 @@ This guide is intended for users running **macOS 12.3 Monterey (or newer)** on *
 ### ⚠️ For macOS Sonoma 14.4 (and newer)
 Apple has removed the `airport` utility from its original location at `/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport`.
 
-To restore functionality, copy the legacy binary provided in this repository to your system path:
+To restore functionality on macOS Apple Silicon:
 
-```bash
-sudo cp bin/airport /usr/local/bin/airport
-sudo chmod +x /usr/local/bin/airport
-```
+1. **Install Rosetta 2** (required to run x86_64 Intel binaries):
+   ```bash
+   softwareupdate --install-rosetta --agree-to-license
+   ```
+
+2. **Copy the legacy binary to your system path**:
+   ```bash
+   sudo mkdir -p /usr/local/bin
+   sudo cp bin/airport /usr/local/bin/airport
+   sudo chmod +x /usr/local/bin/airport
+   ```
 
 It covers:
 1.  Installing the Python 3 AirPyrt environment on modern macOS.
@@ -133,8 +140,9 @@ The AirPort runs OpenSSH 5.9 (NetBSD Secure Shell, 2011), which offers only the 
 To connect purely via CLI:
 
 ```bash
-ssh -oHostKeyAlgorithms=+ssh-rsa,ssh-dss -oPubkeyAcceptedKeyTypes=+ssh-rsa,ssh-dss root@10.0.1.1
+ssh -oHostKeyAlgorithms=+ssh-rsa,ssh-dss -oPubkeyAcceptedAlgorithms=+ssh-rsa,ssh-dss root@10.0.1.1
 ```
+*(Note: `PubkeyAcceptedAlgorithms` is used in OpenSSH 8.5+; older clients use the alias `PubkeyAcceptedKeyTypes`)*
 
 ### Permanent Fix
 Add this to your `~/.ssh/config` file to avoid typing flags every time:
@@ -142,7 +150,7 @@ Add this to your `~/.ssh/config` file to avoid typing flags every time:
 ``` bash
 Host 10.0.1.1
 HostKeyAlgorithms +ssh-rsa,ssh-dss
-PubkeyAcceptedKeyTypes +ssh-rsa,ssh-dss
+PubkeyAcceptedAlgorithms +ssh-rsa,ssh-dss
 ```
 *(Replace 10.0.1.1 with your router's IP)*
 
@@ -153,10 +161,10 @@ PubkeyAcceptedKeyTypes +ssh-rsa,ssh-dss
 By connecting via SSH, you can remove regional restrictions (e.g., beamforming limitations or channel width caps in certain EU/Asian regions) and unlock higher power limits (FCC mode). This can significantly increase speed (e.g., from 150 Mbps to 800+ Mbps) by enabling previously locked 802.11ac capabilities.
 
 **1. Connect via SSH:**
-(See Part 4 for setup if you haven't already).
+Connect using the key algorithm flags from [Part 4](#part-4-ssh-connection-fixes) (or simply `ssh root@10.0.1.1` if you added the fix to `~/.ssh/config`):
 
 ```bash
-ssh root@10.0.1.1
+ssh -oHostKeyAlgorithms=+ssh-rsa,ssh-dss -oPubkeyAcceptedAlgorithms=+ssh-rsa,ssh-dss root@10.0.1.1
 ```
 
 **2. Run Device-Side Unlock Commands:**
@@ -358,15 +366,15 @@ The AirPort Extreme can automatically execute custom scripts from a USB drive on
 ### 1. How It Works
 
 The system works by:
-1. Replacing `/etc/rc.local` with a custom script that mounts the USB drive (`/dev/dk0` → `/Volumes/dk0`)
-2. Running `/Volumes/dk0/AirPort-startup.sh` if it exists and passes verification
+1. Replacing `/etc/rc.local` with a custom script that mounts the USB drive (`/dev/sd0a` → `/Volumes/USB`)
+2. Running `/Volumes/USB/AirPort-startup.sh` if it exists and passes verification
 3. Unmounting the drive and restarting `diskd` to restore normal USB functionality
 
 ### 2. Installation
 
 **Prerequisites:**
 - SSH access enabled (see Part 3)
-- USB drive connected to the AirPort (formatted as HFS+, APFS, or FAT32)
+- USB drive connected to the AirPort (formatted as **HFS+ [Mac OS Extended]** or **FAT32**; APFS is *not supported* by NetBSD 6.0)
 - Clone the [airport repository](https://github.com/samuelthomas2774/airport) to your USB drive:
   ```bash
   # On your Mac, with USB drive mounted
@@ -391,30 +399,31 @@ lrwxr-xr-x  1 root  wheel  19 Aug 30  2016 rc.local -> /mnt/Flash/rc.local
 ```
 
 **Step 3: Mount USB Drive**
-The USB is auto-mounted when accessed via SMB/AFP, or manually:
+The USB is auto-mounted when accessed via SMB/AFP (e.g. under `/Volumes/USB`), or manually:
 ```bash
-mount /dev/dk0 /Volumes/dk0
+mount_hfs /dev/sd0a /Volumes/USB
+# Or for FAT32: mount -t msdos /dev/sd0a /Volumes/USB
 ```
 
 **Step 4: Copy Startup Scripts**
-Assuming the `airport` repository is at the root of your USB drive (`/Volumes/dk0/airport/`):
+Assuming the `airport` repository is at the root of your USB drive (`/Volumes/USB/airport/`):
 
 ```bash
-cp /Volumes/dk0/airport/startup-scripts/AirPort-run.sh /mnt/Flash/rc.local
-cp /Volumes/dk0/airport/startup-scripts/AirPort-rc.local.sh /mnt/Flash/AirPort-rc.local.sh
-cp /Volumes/dk0/airport/startup-scripts/AirPort-run-on-ifup.sh /mnt/Flash/AirPort-run-on-ifup.sh
+cp /Volumes/USB/airport/startup-scripts/AirPort-run.sh /mnt/Flash/rc.local
+cp /Volumes/USB/airport/startup-scripts/AirPort-rc.local.sh /mnt/Flash/AirPort-rc.local.sh
+cp /Volumes/USB/airport/startup-scripts/AirPort-run-on-ifup.sh /mnt/Flash/AirPort-run-on-ifup.sh
 ```
 
 **Step 5: Set Up Security (Recommended)**
 Generate a hash key to prevent unauthorized USB drives from running scripts:
 
 ```bash
-cd /Volumes/dk0/airport
+cd /Volumes/USB/airport
 ./startup-scripts/setup-security.sh
 ```
 
 This creates:
-- `/Volumes/dk0/AirPort-hash.key` - 1024 bytes of random data
+- `/Volumes/USB/AirPort-hash.key` - 1024 bytes of random data
 - `/mnt/Flash/AirPort-hash.key` - SHA512 hash of that data
 
 The startup script will verify the hash before running anything.
@@ -439,7 +448,7 @@ echo "[$(date)] Startup complete!" >> /AirPort-startup.log
 
 Make it executable:
 ```bash
-chmod +x /Volumes/dk0/AirPort-startup.sh
+chmod +x /Volumes/USB/AirPort-startup.sh
 ```
 
 ### 4. Removal
@@ -463,7 +472,7 @@ For detailed information, see:
 
 ## Part 9: Firewall Customization (Packet Filter)
 
-The AirPort uses OpenBSD's `pf` (packet filter) for firewall and NAT. By default, the configuration is locked, but you can inject custom "anchors" (extension points) to add your own rules without modifying the main config.
+The AirPort uses `pf` (packet filter, originally from OpenBSD and ported to NetBSD) for firewall and NAT. By default, the configuration is locked, but you can inject custom "anchors" (extension points) to add your own rules without modifying the main config.
 
 ### 1. What Are Anchors?
 
@@ -486,10 +495,10 @@ Anchors are placeholders in the pf config where you can load external rule files
 
 ```bash
 ssh root@10.0.1.1
-mount /dev/dk0 /Volumes/dk0
+mount_hfs /dev/sd0a /Volumes/USB
 
 # Run the injection script
-/Volumes/dk0/airport/pf/inject.sh /Volumes/dk0/airport/pf/sed.txt
+/Volumes/USB/airport/pf/inject.sh /Volumes/USB/airport/pf/sed.txt
 ```
 
 **Automatic Injection (via Startup Script):**
@@ -537,7 +546,7 @@ After creating/modifying rule files, reload them:
 ssh root@10.0.1.1
 
 # Re-run injection script
-/Volumes/dk0/airport/pf/inject.sh /Volumes/dk0/airport/pf/sed.txt
+/Volumes/USB/airport/pf/inject.sh /Volumes/USB/airport/pf/sed.txt
 ```
 
 Or if using the daemon, it will auto-reload every minute.

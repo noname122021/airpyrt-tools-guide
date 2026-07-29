@@ -6,7 +6,7 @@ This repository serves as a comprehensive documentation hub for **jailbreaking**
 
 **Supported Models (802.11ac "Tower" Generation):**
 - **AirPort Extreme** (6th Generation) - **A1521**
-- **AirPort Time Capsule** (5th Generation / AC) - **A1470** (2TB & 3TB models)
+- **AirPort Time Capsule** (5th Generation / AC) - **A1470** (2TB, 3TB & 4TB models)
 
 **Legacy Models (802.11n "Flat" Generation):**
 - **AirPort Extreme** (5th Generation) - **A1408**

@@ -142,7 +142,14 @@ Key indicators:
 
 ---
 
-## 7. Reference: Available `atactl` Commands
+## 7. Safety & Considerations
+
+* **Mechanical Wear**: Avoid setting an excessively short spindown timer (e.g., under 5 minutes / 300s) for daily use. Frequent spin-up and spin-down cycles increase mechanical stress on motor bearings and heads, accelerating drive degradation—especially on 10+ year old mechanical HDDs. A value of 10 to 15 minutes (600s – 900s) is recommended.
+* **Thermal Management**: If you disable spindown (`atactl wd0 setstandby 0`), monitor the internal drive temperature using `atactl wd0 smart status` or `envstat` to ensure thermal limits remain safe inside the compact enclosure.
+
+---
+
+## 8. Reference: Available `atactl` Commands
 
 The NetBSD 6.0 build on the AirPort Time Capsule supports the following `atactl` subcommands:
 
@@ -164,7 +171,7 @@ The NetBSD 6.0 build on the AirPort Time Capsule supports the following `atactl`
 
 ---
 
-## 8. Test Environment & Credits
+## 9. Test Environment & Credits
 
 - **Tested Device**: AirPort Time Capsule 802.11ac (Model A1470)
 - **Firmware**: 7.9.1 (`AirPortFW-79100.2`, build 2019-04-29)
