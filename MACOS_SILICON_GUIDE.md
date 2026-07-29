@@ -124,7 +124,7 @@ acp --auth-mode srp -t <IP_ADDRESS> -p <PASSWORD> --reboot
 
 ## Part 4: SSH Connection Fixes
 
-The AirPort Extreme runs an old Dropbear SSH server that uses `ssh-rsa` and `ssh-dss` algorithms. Modern OpenSSH clients (included in macOS) disable these by default.
+The AirPort runs OpenSSH 5.9 (NetBSD Secure Shell, 2011), which offers only the `ssh-rsa` and `ssh-dss` host key algorithms. Modern OpenSSH clients (included in macOS) disable these by default.
 
 ### Error Message
 `Unable to negotiate with 10.0.1.1 port 22: no matching host key type found. Their offer: ssh-rsa,ssh-dss`
